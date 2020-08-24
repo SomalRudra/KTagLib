@@ -2,9 +2,12 @@
 
 Kotlin bindings for [TagLib](https://github.com/taglib/taglib)
 
-Gradle:
 
-Step 1.Add it in your root build.gradle at the end of repositories:
+To get a Git project into your build:
+
+Step 1. Add the JitPack repository to your build file
+
+Add it in your root build.gradle at the end of repositories:
 
 	allprojects {
 		repositories {
@@ -16,8 +19,9 @@ Step 1.Add it in your root build.gradle at the end of repositories:
 Step 2. Add the dependency
 
 	dependencies {
-	        implementation 'com.github.SomalRudra:KTagLib:0.4'
+	        implementation 'com.github.SomalRudra:KTagLib:1.0'
 	}
+
 
 See the sample app for an example of reading tags, using the Storage Access Framework.
 
