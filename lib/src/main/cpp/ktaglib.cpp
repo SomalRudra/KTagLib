@@ -1,8 +1,9 @@
 
 #include <jni.h>
 #include <string>
-
 #include <sys/stat.h>
+#include <android/log.h>
+
 #include <fileref.h>
 #include <flacfile.h>
 #include <opusfile.h>
@@ -15,8 +16,9 @@
 #include <toolkit/tmap.h>
 #include <toolkit/tpicturemap.h>
 #include <toolkit/tdebuglistener.h>
+
 #include "unique_fd.h"
-#include <android/log.h>
+
 
 class DebugListener : public TagLib::DebugListener {
     void printMessage(const TagLib::String &msg) override {
@@ -39,11 +41,6 @@ jmethodID iteratorHasNext;
 jmethodID iteratorNextEntry;
 jmethodID getPropertyKey;
 jmethodID getPropertyValue;
-
-jclass globalIntClass;
-jmethodID intInit;
-
-jmethodID intGetValue;
 
 extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     JNIEnv *env;
@@ -85,13 +82,6 @@ extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     getPropertyValue = env->GetMethodID(globalMapEntryClass, "getValue",
             "()Ljava/lang/Object;");
 
-    jclass intClass = env->FindClass("java/lang/Integer");
-    globalIntClass = reinterpret_cast<jclass>(env->NewGlobalRef(intClass));
-    env->DeleteLocalRef(intClass);
-    intInit = env->GetMethodID(globalIntClass, "<init>", "(I)V");
-
-    intGetValue = env->GetMethodID(globalIntClass, "intValue", "()I");
-
     TagLib::setDebugListener(&listener);
 
     return JNI_VERSION_1_6;
@@ -105,7 +95,6 @@ extern "C" void JNI_OnUnload(JavaVM *vm, void *reserved) {
     env->DeleteGlobalRef(globalMapEntryClass);
     env->DeleteGlobalRef(globalIteratorClass);
     env->DeleteGlobalRef(globalSetClass);
-    env->DeleteGlobalRef(globalIntClass);
 
     TagLib::setDebugListener(nullptr);
 }
@@ -114,8 +103,8 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_simplecityapps_ktaglib_KTagLib_
 
     unique_fd uniqueFd = unique_fd(fd_);
 
-    TagLib::IOStream *stream = new TagLib::FileStream(uniqueFd.get(), true);
-    TagLib::FileRef fileRef(stream);
+    auto stream = std::make_unique<TagLib::FileStream>(uniqueFd.get(), true);
+    TagLib::FileRef fileRef(stream.get());
 
     jbyteArray result = nullptr;
 
@@ -177,13 +166,13 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_simplecityapps_ktaglib_KTagLib_
     return result;
 }
 
-const char* convertJStringToCString(JNIEnv *env, jstring str) {
+static const char* convertJStringToCString(JNIEnv *env, jstring str) {
     jboolean is_copy;
     const char *CString = env->GetStringUTFChars(str, &is_copy);
     return CString;
 }
 
-void addIntegerProperty(JNIEnv *env, jobject properties, const char* key, long long value) {
+static void addIntegerProperty(JNIEnv *env, jobject properties, const char* key, long long value) {
     std::string string_value = std::to_string(value);
     jstring jKey = env->NewStringUTF(key);
     jstring jValue = env->NewStringUTF(string_value.c_str());
@@ -195,14 +184,14 @@ JNIEXPORT jobject JNICALL
 Java_com_simplecityapps_ktaglib_KTagLib_getMetadata(JNIEnv *env, jclass clazz, jint file_descriptor) {
     unique_fd uniqueFd = unique_fd(file_descriptor);
 
-    TagLib::IOStream *stream = new TagLib::FileStream(uniqueFd.get(), true);
-    TagLib::FileRef fileRef(stream);
+    auto stream = std::make_unique<TagLib::FileStream>(uniqueFd.get(), true);
+    TagLib::FileRef fileRef(stream.get());
 
     jobject properties = env->NewObject(globalHashMapClass, hashMapInit);
 
     if (fileRef.isValid()) {
         auto taglibProperties = fileRef.properties();
-        for (auto & taglibProperty : taglibProperties)
+        for (auto &taglibProperty : taglibProperties)
             if (!taglibProperty.second.isEmpty()) {
                 jstring key = env->NewStringUTF(taglibProperty.first.toCString(true));
                 jstring value = env->NewStringUTF(taglibProperty.second.front().toCString(true));
@@ -231,8 +220,8 @@ JNIEXPORT jboolean JNICALL
 Java_com_simplecityapps_ktaglib_KTagLib_writeMetadata(JNIEnv *env, jclass clazz, jint file_descriptor, jobject properties) {
     unique_fd uniqueFd = unique_fd(file_descriptor);
 
-    TagLib::IOStream *stream = new TagLib::FileStream(uniqueFd.get(), false);
-    TagLib::FileRef fileRef(stream);
+    auto stream = std::make_unique<TagLib::FileStream>(uniqueFd.get(), false);
+    TagLib::FileRef fileRef(stream.get());
 
     jboolean isSuccessful = false;
 

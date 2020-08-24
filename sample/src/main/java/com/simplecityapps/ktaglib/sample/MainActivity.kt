@@ -10,8 +10,6 @@ import android.widget.Button
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.RecyclerView
-import com.simplecityapps.ktaglib.AudioFile
-import com.simplecityapps.ktaglib.KTagLib
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
@@ -76,7 +74,6 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-
     // Private
 
     private suspend fun parseUri(uri: Uri): List<Document> {
@@ -126,7 +123,8 @@ class MainActivity : AppCompatActivity() {
             documents.forEach { document ->
                 contentResolver.openFileDescriptor(document.uri, "r")?.use { pfd ->
                     try {
-                        emit(Pair(KTagLib.getAudioFile(pfd.fd, document.uri.toString(), document.displayName.substringBeforeLast(".")), document))
+                        emit(Pair(AudioFile.getAudioFile(pfd.detachFd(), document.uri.toString(),
+                                document.displayName.substringBeforeLast(".")), document))
                     } catch (e: IllegalStateException) {
                         Log.e("MainActivity", "Failed to get audio file: ", e)
                     }
@@ -134,7 +132,6 @@ class MainActivity : AppCompatActivity() {
             }
         }.flowOn(Dispatchers.IO)
     }
-
 
     // Static
 
